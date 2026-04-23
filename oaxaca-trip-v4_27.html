@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Oaxaca Viaje - Itinerario 6 días</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #FAF7F2; }
+        .leaflet-container { background: #f3f4f6 !important; }
+        
+        .gradient-1 { background: linear-gradient(135deg, #c05529 0%, #d9713e 100%); }
+        .gradient-2 { background: linear-gradient(135deg, #3a7d44 0%, #5a9d5c 100%); }
+        .gradient-3 { background: linear-gradient(135deg, #6b4f9e 0%, #8b6fb6 100%); }
+        .gradient-4 { background: linear-gradient(135deg, #b83232 0%, #d65252 100%); }
+        .gradient-5 { background: linear-gradient(135deg, #1a6b8a 0%, #3a8ba8 100%); }
+        .gradient-6 { background: linear-gradient(135deg, #b07c1a 0%, #d49a38 100%); }
+        
+        .tab-active { background: rgba(255,255,255,0.25) !important; border: 1.5px solid rgba(255,255,255,0.6) !important; }
+        .tab-inactive { background: rgba(255,255,255,0.1) !important; border: 1.5px solid transparent !important; opacity: 0.65; }
+        
+        img { display: block; max-width: 100%; height: auto; }
+        
+        /* Z-index: Header siempre arriba del mapa */
+        .sticky { z-index: 50 !important; }
+        .leaflet-container { z-index: 1 !important; position: relative !important; }
+        
+        /* Bajar controles de Leaflet debajo del header */
+        .leaflet-control-container { z-index: 10 !important; }
+        .leaflet-control-zoom { z-index: 10 !important; }
+        .leaflet-top, .leaflet-bottom { z-index: 10 !important; }
+        .leaflet-control { z-index: 10 !important; }
+    </style>
+</head>
+<body class="bg-[#FAF7F2]">
+    <div id="app"></div>
+
+    <script>
+        const days = [
+            {
+                id: 1, date: "5 de mayo", dayOfWeek: "Martes", title: "Valle Sur", 
+                transport: "Taxi de confianza", travelers: 4, startTime: "08:00", endTime: "16:35",
+                km: 135, travelTime: "3h 05min", visitTime: "5h 15min", totalTime: "8h 35min",
+                dayExpenses: { taxi: 2550, meals: { desayuno: 800, comida: 1600, cena: 1600 }, entradas: 0, travelers: 4 },
+                gradient: "gradient-1", emoji: "🍶", color: "rgb(192, 85, 42)", colorText: "rgb(146, 64, 14)",
+                stops: [
+                    {n: 0, name: "Aeropuerto Internacional", desc: "Llegada", time: "08:05", s: "08:05", e: "08:35", dur: "30 min", trans: "Taxi", km: 45, tmin: 40},
+                    {n: 1, name: "Hotel Niyana", desc: "Descanso/Preparación", time: "09:15", s: "09:15", e: "09:45", dur: "30 min", trans: "Taxi", km: 0, tmin: 0},
+                    {n: 2, name: "San Martín Tilcajete", desc: "Alebrijes", time: "10:50", s: "10:50", e: "13:00", dur: "2h 10m", trans: "Taxi", km: 20, tmin: 25},
+                    {n: 3, name: "Santo Tomás Jalieza", desc: "Textiles", time: "13:15", s: "13:15", e: "14:00", dur: "45 min", trans: "Taxi", km: 14, tmin: 15},
+                    {n: 4, name: "Ocotlán de Morelos", desc: "Mercado", time: "14:20", s: "14:20", e: "15:25", dur: "1h 05m", trans: "Taxi", km: 56, tmin: 55},
+                    {n: 0, name: "Hotel Niyana", desc: "Regreso (con atasco)", time: "16:35", isEnd: true}
+                ]
+            },
+            {
+                id: 2, date: "6 de mayo", dayOfWeek: "Miércoles", title: "Etla", 
+                transport: "Tour", travelers: 2, startTime: "09:00", endTime: "14:30",
+                km: 48, travelTime: "1h", visitTime: "4h 30min", totalTime: "5h 30min",
+                dayExpenses: { taxi: 0, meals: { desayuno: 400, comida: 800, cena: 800 }, entradas: 728, travelers: 2 },
+                gradient: "gradient-5", emoji: "🧀", color: "rgb(26, 107, 138)", colorText: "rgb(70, 140, 170)",
+                stops: [
+                    {n: 0, name: "Hotel Niyana", desc: "Salida del tour", time: "09:00", isStart: true},
+                    {n: 1, name: "San Agustín Etla", desc: "Mercado artesanal", time: "09:30", s: "09:30", e: "11:00", dur: "1h 30m", trans: "Furgoneta", km: 24, tmin: 30},
+                    {n: 2, name: "Centro de las Artes", desc: "Visita (1.5h)", time: "11:00", s: "11:00", e: "12:30", dur: "1h 30m", trans: "Tour", km: 0, tmin: 5},
+                    {n: 3, name: "San Agustín Etla", desc: "Cata de quesos", time: "12:30", s: "12:30", e: "14:00", dur: "1h 30m", trans: "Tour", km: 0, tmin: 5},
+                    {n: 0, name: "Hotel Niyana", desc: "Regreso", time: "14:30", isEnd: true}
+                ]
+            },
+            {
+                id: 3, date: "7 de mayo", dayOfWeek: "Jueves", title: "Ruta Arqueológica", 
+                transport: "Tour", travelers: 2, startTime: "08:00", endTime: "17:00",
+                km: 65, travelTime: "2h 15min", visitTime: "6h 45min", totalTime: "9h",
+                dayExpenses: { taxi: 0, meals: { desayuno: 400, comida: 800, cena: 800 }, entradas: 400, travelers: 2 },
+                gradient: "gradient-3", emoji: "🏛️", color: "rgb(107, 79, 158)", colorText: "rgb(135, 111, 182)",
+                tourLink: "https://www.getyourguide.com/oaxaca-l779/oaxaca-monte-alban-y-cuilapam-de-guerrero-tour-de-dia-completo-t570049/",
+                stops: [
+                    {n: 0, name: "Quinta Real Oaxaca", desc: "Salida del tour", time: "08:00", isStart: true},
+                    {n: 1, name: "Monte Albán", desc: "Arqueológico (3h)", s: "08:30", e: "11:30", dur: "3h", trans: "Tour", km: 12, tmin: 30},
+                    {n: 2, name: "Arrazola", desc: "Visita (1h)", s: "11:45", e: "12:45", dur: "1h", trans: "Tour", km: 15, tmin: 20},
+                    {n: 3, name: "Convento de Cuilapam", desc: "Almuerzo (1h)", s: "13:00", e: "14:00", dur: "1h", trans: "Tour", km: 10, tmin: 20},
+                    {n: 4, name: "Convento de Cuilapam", desc: "Tour guiado (1h)", s: "14:00", e: "15:00", dur: "1h", trans: "Tour", km: 0, tmin: 5},
+                    {n: 5, name: "San Bartolo Coyotepec", desc: "Barro negro (1h)", s: "15:15", e: "16:15", dur: "1h", trans: "Tour", km: 16, tmin: 20},
+                    {n: 0, name: "Hotel Niyana", desc: "Regreso", time: "17:00", isEnd: true}
+                ]
+            },
+            {
+                id: 4, date: "8 de mayo", dayOfWeek: "Viernes", title: "Zapotecos y Conventos", 
+                transport: "Taxi de confianza", travelers: 2, startTime: "08:00", endTime: "17:00",
+                km: 129, travelTime: "3h 20min", visitTime: "5h 30min", totalTime: "9h",
+                dayExpenses: { taxi: 2325, meals: { desayuno: 400, comida: 800, cena: 800 }, entradas: 400, travelers: 2 },
+                gradient: "gradient-4", emoji: "🚗", color: "rgb(184, 50, 50)", colorText: "rgb(200, 80, 80)",
+                stops: [
+                    {n: 0, name: "Hotel Niyana", desc: "Salida", time: "08:00", isStart: true},
+                    {n: 1, name: "Árbol del Tule", desc: "Milenario", time: "08:45", s: "08:45", e: "09:15", dur: "30 min", trans: "Taxi", km: 12, tmin: 30},
+                    {n: 2, name: "Mitla", desc: "Zapoteca", time: "10:00", s: "10:00", e: "11:00", dur: "1h", trans: "Taxi", km: 28, tmin: 45},
+                    {n: 3, name: "Teotitlán", desc: "Tapetes", time: "11:45", s: "11:45", e: "13:15", dur: "1h 30m", trans: "Taxi", km: 20, tmin: 45},
+                    {n: 4, name: "Zaachila", desc: "Ex convento", time: "14:00", s: "14:00", e: "15:00", dur: "1h", trans: "Taxi", km: 30, tmin: 40},
+                    {n: 0, name: "Hotel Niyana", desc: "Regreso", time: "17:00", isEnd: true}
+                ]
+            },
+            {
+                id: 5, date: "9 de mayo", dayOfWeek: "Sábado", title: "Oaxaca Centro", 
+                transport: "A pie", travelers: 2, startTime: "09:00", endTime: "15:30",
+                km: 5, travelTime: "1h 30min", visitTime: "4h", totalTime: "5h 30min",
+                dayExpenses: { taxi: 0, meals: { desayuno: 400, comida: 800, cena: 800 }, entradas: 100, travelers: 2 },
+                gradient: "gradient-2", emoji: "🚶", color: "rgb(58, 125, 68)", colorText: "rgb(76, 110, 86)",
+                stops: [
+                    {n: 0, name: "Hotel Niyana", desc: "Salida", time: "09:00", isStart: true},
+                    {n: 1, name: "Mercado Central", desc: "Artesanías", time: "09:30", s: "09:30", e: "10:30", dur: "1h", trans: "A pie", km: 0.5, tmin: 10},
+                    {n: 2, name: "Catedral", desc: "Colonial", time: "10:45", s: "10:45", e: "11:30", dur: "45 min", trans: "A pie", km: 0.8, tmin: 5},
+                    {n: 3, name: "Zócalo", desc: "Andador", time: "11:45", s: "11:45", e: "13:15", dur: "1h 30m", trans: "A pie", km: 1.2, tmin: 8},
+                    {n: 4, name: "Jalatlaco", desc: "Textiles", time: "13:30", s: "13:30", e: "14:30", dur: "1h", trans: "A pie", km: 2.5, tmin: 12},
+                    {n: 0, name: "Hotel Niyana", desc: "Regreso", time: "14:45", isEnd: true}
+                ]
+            },
+            {
+                id: 6, date: "10 de mayo", dayOfWeek: "Domingo", title: "Ruta Tradicional", 
+                transport: "Taxi de confianza", travelers: 2, startTime: "09:00", endTime: "13:00",
+                km: 116, travelTime: "2h 30min", visitTime: "1h 30min", totalTime: "4h",
+                dayExpenses: { taxi: 1350, meals: { desayuno: 400, comida: 800, cena: 800 }, entradas: 300, travelers: 2 },
+                gradient: "gradient-6", emoji: "🌿", color: "rgb(176, 124, 26)", colorText: "rgb(200, 150, 60)",
+                stops: [
+                    {n: 0, name: "Hotel Niyana", desc: "Salida", time: "09:00", isStart: true},
+                    {n: 1, name: "Mercado Tlacolula", desc: "Tianguis y Pasillo del Humo", time: "10:30", s: "10:30", e: "12:00", dur: "1h 30m", trans: "Taxi", km: 58, tmin: 75},
+                    {n: 0, name: "Expressos Colombo Huatulco", desc: "Parking (salida 15:00)", time: "13:00", isEnd: true}
+                ]
+            }
+        ];
+
+        let page = 0, expanded = {}, maps = {}, presupuestoTab = 'categorias', taxiAjustado = {};
+
+        let horasTaxi = { 1: 8, 4: 8, 5: 4, 6: 4 }; // Horas por defecto para cada día
+
+        function ajustarHoras(dayId, cambio) {
+            horasTaxi[dayId] = Math.max(1, (horasTaxi[dayId] || 8) + cambio);
+            const total = horasTaxi[dayId] * 300;
+            taxiAjustado[dayId] = total;
+            
+            // Actualizar solo los elementos sin re-renderizar todo
+            const horasEl = document.getElementById(`horas-display-${dayId}`);
+            const totalEl = document.getElementById(`total-display-${dayId}`);
+            if (horasEl) horasEl.textContent = horasTaxi[dayId] + 'h';
+            if (totalEl) totalEl.textContent = total;
+            
+            // Actualizar solo el total por persona sin re-renderizar
+            const diaActual = days[dayId - 1];
+            const totalPesos = ((taxiAjustado[dayId] !== undefined ? taxiAjustado[dayId] : diaActual.dayExpenses.taxi) + diaActual.dayExpenses.meals.desayuno + diaActual.dayExpenses.meals.comida + diaActual.dayExpenses.meals.cena + diaActual.dayExpenses.entradas) / diaActual.dayExpenses.travelers;
+            const totalEuros = totalPesos / 20;
+            const totalPersonaEl = document.querySelector(`[data-total-persona="${dayId}"]`);
+            if (totalPersonaEl) totalPersonaEl.textContent = '$' + totalPesos.toFixed(0) + ' (€' + totalEuros.toFixed(2) + ')/persona';
+        }
+
+        function go(d) { page = d; expanded = {}; render(); setTimeout(() => { if(page) initMap(page); }, 200); }
+        function toggle(i) { expanded[i] = !expanded[i]; render(); }
+
+        function calcularCostoTaxi(d) {
+            // Solo calcular si tiene startTime, endTime y es taxi
+            if (!d.startTime || !d.endTime || !d.transport.toLowerCase().includes('taxi')) return null;
+            
+            const [startHora, startMin] = d.startTime.split(':').map(Number);
+            const [endHora, endMin] = d.endTime.split(':').map(Number);
+            
+            const startMinTotal = startHora * 60 + startMin;
+            const endMinTotal = endHora * 60 + endMin;
+            
+            const horas = (endMinTotal - startMinTotal) / 60;
+            const pesos = horas * 300;
+            const euros = pesos / 20; // 1 EUR = 20 MXN
+            
+            return { horas: horas.toFixed(1), pesos: Math.round(pesos), euros: euros.toFixed(2) };
+        }
+
+        function initMap(dayId) {
+            if(maps[dayId]) return;
+            const d = days[dayId - 1];
+            const mapEl = document.getElementById(`map-${dayId}`);
+            if(!mapEl || !window.L) return;
+
+            const coords = {
+                1: [[17.0175, -96.7256], [17.0628, -96.7265], [17.0, -96.5], [17.02, -96.35], [17.05, -96.25], [17.0628, -96.7265]],
+                2: [[17.0628, -96.7265], [17.2106, -96.8417], [17.22, -96.835], [17.0628, -96.7265]],
+                3: [[17.0628, -96.7265], [17.0474, -96.7662], [17.0245, -96.7363], [17.0013, -96.7530], [17.0520, -96.6800], [17.0628, -96.7265]],
+                4: [[17.0628, -96.7265], [17.0245, -96.7363], [16.9118, -96.3938], [16.949, -96.449], [17.0373, -96.6843], [17.0628, -96.7265]],
+                5: [[17.0628, -96.7265], [17.0633, -96.7263], [17.063, -96.726], [17.0645, -96.72], [17.0635, -96.725], [17.0628, -96.7265]],
+                6: [[17.0628, -96.7265], [16.9183, -96.5282], [17.0645, -96.7265]]
+            };
+
+            try {
+                const map = L.map(`map-${dayId}`).setView([17.05, -96.7], 10);
+                L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {
+                    attribution: '© Esri', maxZoom: 19, crossOrigin: 'anonymous'
+                }).addTo(map);
+
+                const points = coords[dayId] || [];
+                if(points.length === 0) return;
+
+                L.polyline(points, { color: '#dc2626', dashArray: '8 5', weight: 3, opacity: 0.6 }).addTo(map);
+
+                points.forEach((pt, idx) => {
+                    const num = idx + 1;
+                    const isEnd = (idx === points.length - 1 && points[0][0] === pt[0] && points[0][1] === pt[1]);
+                    const color = isEnd || idx === 0 ? '#1f2937' : d.color;
+                    const html = `<div style="width:32px;height:32px;background:${color};border-radius:50%;display:flex;align-items:center;justify-content:center;color:white;font-weight:bold;font-size:13px;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3);">${isEnd ? '🏨' : num}</div>`;
+                    const icon = L.divIcon({ html, iconSize: [32, 32], iconAnchor: [16, 16] });
+                    const stop = d.stops[idx];
+                    L.marker(pt, { icon }).bindPopup(stop.name).addTo(map);
+                });
+
+                const bounds = L.latLngBounds(points);
+                map.fitBounds(bounds, { padding: [60, 60] });
+                maps[dayId] = map;
+            } catch(e) { console.error('Map:', e); }
+        }
+
+        function renderHome() {
+            return `
+                <div class="min-h-screen bg-[#FAF7F2]">
+                    <div class="relative h-40 md:h-48 overflow-hidden">
+                        <img src="https://images.unsplash.com/photo-1686448921810-d1b6a2a683b3?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=1080" class="w-full h-full object-cover" alt="Oaxaca">
+                        <div class="absolute inset-0 bg-gradient-to-b from-black/30 via-black/40 to-black/70"></div>
+                        <div class="absolute inset-0 flex flex-col justify-end items-center text-center p-5 md:p-8">
+                            <div class="flex items-center gap-2 mb-2 justify-center">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-amber-400 w-4 h-4"><path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0"></path><circle cx="12" cy="10" r="3"></circle></svg>
+                                <span class="text-amber-300 text-sm tracking-widest uppercase">México · Oaxaca</span>
+                            </div>
+                            <h1 class="text-white text-3xl font-bold mb-1">Viaje a Oaxaca</h1>
+                            <p class="text-white/80 text-sm">5 – 10 de mayo · 6 días · 4 viajeros</p>
+                        </div>
+                    </div>
+
+                    <div class="max-w-2xl mx-auto px-4 py-6">
+                        <div class="flex items-stretch gap-3 mb-6">
+                            <div class="flex-1 flex items-center gap-2 bg-white rounded-lg px-4 py-3 shadow-sm border border-gray-100">
+                                <div class="w-8 h-8 rounded-full bg-gray-900 flex items-center justify-center text-base">🏨</div>
+                                <div>
+                                    <p class="text-gray-800 font-semibold text-sm">Hotel Niyana · Oaxaca</p>
+                                    <p class="text-gray-500 text-xs">Punto de origen</p>
+                                </div>
+                            </div>
+                            <button onclick="page='presupuesto'; render();" class="px-3 py-3 rounded-lg bg-gray-100 hover:bg-gray-200 border border-gray-200 text-gray-700 shadow-sm font-semibold text-xs flex items-center gap-1.5 whitespace-nowrap transition">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
+                                <span>Presupuesto</span>
+                            </button>
+                        </div>
+
+                        <h2 class="text-gray-800 mb-4 font-bold text-xs tracking-widest uppercase">Itinerario</h2>
+
+                        <div class="space-y-3 pb-8">
+                            ${days.map(d => `
+                                <button onclick="go(${d.id})" class="w-full text-left bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition">
+                                    <div class="${d.gradient} text-white px-4 py-3 flex items-center justify-between">
+                                        <div class="flex items-center gap-3">
+                                            <div class="w-9 h-9 rounded-full bg-white/20 flex items-center justify-center text-lg">${d.emoji}</div>
+                                            <div>
+                                                <div class="text-xs text-white/70 font-semibold uppercase tracking-wide">${d.date.replace(' de ', ' de ').toUpperCase()} - ${d.dayOfWeek}</div>
+                                                <p class="text-white font-bold text-sm">${d.title}</p>
+                                            </div>
+                                        </div>
+                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4 text-white/60"><path d="m9 18 6-6-6-6"></path></svg>
+                                    </div>
+                                    <div class="px-4 py-3 space-y-2">
+                                        <div class="flex items-center gap-1 text-xs text-gray-500">
+                                            <span>Día ${d.id}</span>
+                                        </div>
+                                        <div class="flex items-center gap-3 flex-wrap text-xs">
+                                            <span class="px-2 py-1 rounded-full" style="background: ${d.color}20; color: ${d.color}; font-weight: 600;">${d.transport}</span>
+                                            <span class="text-gray-600">🛣️ ${d.km}km</span>
+                                            <span class="text-gray-600">⏱️ ${d.totalTime}</span>
+                                        </div>
+                                    </div>
+                                </button>
+                            `).join('')}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderDay() {
+            const d = days[page - 1];
+            return `
+                <div class="min-h-screen bg-[#FAF7F2] pb-8">
+                    <div class="${d.gradient} text-white sticky top-0 z-50">
+                        <div class="max-w-2xl mx-auto px-4 pt-3">
+                            <div class="flex items-center gap-3 mb-3">
+                                <button onclick="go(0)" class="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center hover:bg-white/30">
+                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4 text-white"><path d="m12 19-7-7 7-7"></path><path d="M19 12H5"></path></svg>
+                                </button>
+                                <div class="flex-1">
+                                    <p class="text-xs text-white/70 font-semibold uppercase tracking-wide">${d.date.replace(' de ', ' de ').toUpperCase()} - ${d.dayOfWeek}</p>
+                                    <h1 class="text-lg font-bold">${d.emoji} ${d.title}</h1>
+                                </div>
+                                <button onclick="page='presupuesto'; render();" class="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center hover:bg-white/30">
+                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4 text-white"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
+                                </button>
+                            </div>
+                            <div class="grid grid-cols-6 gap-1 pb-2">
+                                ${days.map(dd => `
+                                    <button onclick="go(${dd.id})" class="tab-${dd.id === page ? 'active' : 'inactive'} flex flex-col items-center py-1.5 rounded-lg">
+                                        <span class="text-base">${dd.emoji}</span>
+                                        <span class="text-white text-xs font-bold mt-0.5">${dd.date.split(' de ')[0]} ${dd.date.split(' ')[2].substring(0, 3)}</span>
+                                    </button>
+                                `).join('')}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="max-w-2xl mx-auto px-4">
+                        <div class="mt-3 bg-white rounded-lg shadow-sm border border-gray-100 px-4 py-3">
+                            <div class="flex items-center justify-between gap-2 flex-wrap mb-0">
+                                <span class="text-xs text-gray-600">Día ${d.id}</span>
+                                <span class="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold" style="background: ${d.color}20; color: ${d.color};">
+                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3 h-3"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2"></path><circle cx="7" cy="17" r="2"></circle><path d="M9 17h6"></path><circle cx="17" cy="17" r="2"></circle></svg>
+                                    ${(() => {
+                                        return d.transport;
+                                    })()}
+                                </span>
+                                <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-gray-100 text-gray-600 text-xs">
+                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3 h-3"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M22 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+                                    ${d.travelers}
+                                </span>
+                            </div>
+                        </div>
+
+                        <div class="mt-3 grid grid-cols-4 gap-2">
+                            ${[{i:'🛣️',l:'KM',v:d.km},{i:'🚗',l:'Traslado',v:d.travelTime},{i:'📍',l:'Visitas',v:d.visitTime},{i:'⏱️',l:'Total',v:d.totalTime}].map(s => `
+                                <div class="bg-white rounded-lg shadow-sm border border-gray-100 px-3 py-3 flex flex-col items-center text-center">
+                                    <div class="w-7 h-7 rounded-full flex items-center justify-center mb-1" style="background: ${d.color}20; color: ${d.color};">${s.i}</div>
+                                    <p class="text-gray-900 font-bold text-sm">${s.v}</p>
+                                    <p class="text-gray-400 text-xs">${s.l}</p>
+                                </div>
+                            `).join('')}
+                        </div>
+
+                        ${d.dayExpenses.taxi > 0 ? `
+                        <div class="mt-2 bg-white border-2 border-amber-200 rounded-lg p-3">
+                            <div class="flex items-center justify-between">
+                                <span class="text-xs font-semibold text-gray-700">🚕 Taxi</span>
+                                <div class="flex items-center gap-2">
+                                    <button onclick="ajustarHoras(${d.id}, -1)" class="w-6 h-6 rounded bg-gray-200 hover:bg-gray-300 flex items-center justify-center text-sm font-bold text-gray-700">−</button>
+                                    <div class="text-sm font-bold text-gray-900 min-w-24 text-center">
+                                        <span id="horas-display-${d.id}">8h</span> • <span class="text-amber-600">$<span id="total-display-${d.id}">2400</span></span>
+                                    </div>
+                                    <button onclick="ajustarHoras(${d.id}, 1)" class="w-6 h-6 rounded bg-gray-200 hover:bg-gray-300 flex items-center justify-center text-sm font-bold text-gray-700">+</button>
+                                </div>
+                            </div>
+                        </div>
+                        ` : ''}
+
+                        <div class="mt-2 bg-amber-50 border border-amber-200 rounded-lg p-3">
+                            <div class="flex items-center gap-2 flex-wrap text-sm">
+                                <div class="flex items-center gap-1"><span>🍳</span><span class="font-semibold text-gray-900 text-xs">€${(d.dayExpenses.meals.desayuno / d.dayExpenses.travelers / 20).toFixed(2)}</span></div>
+                                <div class="flex items-center gap-1"><span>🥘</span><span class="font-semibold text-gray-900 text-xs">€${(d.dayExpenses.meals.comida / d.dayExpenses.travelers / 20).toFixed(2)}</span></div>
+                                <div class="flex items-center gap-1"><span>🍽️</span><span class="font-semibold text-gray-900 text-xs">€${(d.dayExpenses.meals.cena / d.dayExpenses.travelers / 20).toFixed(2)}</span></div>
+                                ${d.dayExpenses.entradas > 0 ? `<div class="flex items-center gap-1"><span>🎟️</span><span class="font-semibold text-gray-900 text-xs">€${(d.dayExpenses.entradas / d.dayExpenses.travelers / 20).toFixed(2)}</span></div>` : ''}
+                            </div>
+                            <div class="flex items-center gap-2 mt-2 pt-2 border-t border-amber-200">
+                                <div class="h-5 w-px bg-amber-200"></div>
+                                <span class="text-sm font-bold text-amber-700" data-total-persona="${d.id}">$${(((taxiAjustado[d.id] !== undefined ? taxiAjustado[d.id] : d.dayExpenses.taxi) + d.dayExpenses.meals.desayuno + d.dayExpenses.meals.comida + d.dayExpenses.meals.cena + d.dayExpenses.entradas) / d.dayExpenses.travelers).toFixed(0)} (€${(((taxiAjustado[d.id] !== undefined ? taxiAjustado[d.id] : d.dayExpenses.taxi) + d.dayExpenses.meals.desayuno + d.dayExpenses.meals.comida + d.dayExpenses.meals.cena + d.dayExpenses.entradas) / d.dayExpenses.travelers / 20).toFixed(2)})/persona</span>
+                            </div>
+                        </div>
+
+                        ${d.tourLink ? `<a href="${d.tourLink}" target="_blank" class="mt-3 block bg-blue-50 border-2 border-blue-200 rounded-lg p-3 text-center text-blue-700 text-sm font-semibold hover:bg-blue-100">Ver tour GetYourGuide →</a>` : ''}
+
+                        <div class="mt-4 bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden">
+                            <div class="px-4 py-3 flex items-center gap-2" style="color: ${d.color}; font-weight: 600; font-size: 14px;">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4"><path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0"></path><circle cx="12" cy="10" r="3"></circle></svg>
+                                Mapa del recorrido
+                            </div>
+                            <div id="map-${page}" style="width:100%;height:320px;"></div>
+                            <div class="px-4 py-2 border-t border-gray-50 flex items-center gap-4 flex-wrap text-xs">
+                                <div class="flex items-center gap-1.5">
+                                    <div class="w-3 h-3 rounded-full" style="background: #1f2937;"></div>
+                                    <span class="text-gray-500">Hotel</span>
+                                </div>
+                                <div class="flex items-center gap-1.5">
+                                    <div class="w-3 h-3 rounded-full" style="background: ${d.color};"></div>
+                                    <span class="text-gray-500">Parada</span>
+                                </div>
+                                <div class="flex items-center gap-1.5">
+                                    <div style="width:20px;height:2px;border-top:2px dashed ${d.color};"></div>
+                                    <span class="text-gray-500">Ruta</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mt-4">
+                            <h2 class="text-gray-700 mb-3 font-bold text-xs uppercase tracking-wide">Paradas</h2>
+                            <div class="space-y-0">
+                                ${d.stops.map((s, i) => `
+                                    <div class="relative">
+                                        ${!s.isEnd ? `<div class="absolute left-4 top-12 w-0.5 z-0" style="background: linear-gradient(${d.color}60, ${d.color}20); height: 40px;"></div>` : ''}
+                                        <div class="relative z-10 bg-white rounded-lg shadow-sm border border-gray-100 mb-1 overflow-hidden" style="border-left: 3px solid ${s.isStart || s.isEnd ? '#1f2937' : d.color};">
+                                            <div class="p-4">
+                                                <div class="flex items-start gap-3">
+                                                    <div class="w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0" style="background: ${s.isStart || s.isEnd ? '#1f2937' : d.color};">${s.isStart || s.isEnd ? '🏨' : s.n}</div>
+                                                    <div class="flex-1 min-w-0">
+                                                        <p class="text-gray-900 font-bold text-sm">${s.name}</p>
+                                                        <p class="text-gray-500 text-xs mt-0.5">${s.desc}</p>
+                                                        ${(s.isStart || s.isEnd) ? `<p class="text-gray-900 font-bold text-sm mt-1">🕐 ${s.time}</p>` : ''}
+                                                        ${s.s ? `
+                                                            <div class="flex items-center gap-3 mt-2 flex-wrap text-xs">
+                                                                <span class="text-gray-500">⏱️ ${s.s} – ${s.e}</span>
+                                                                <span class="px-2 py-0.5 rounded-full font-semibold" style="background: ${d.color}20; color: ${d.color};">${s.dur}</span>
+                                                            </div>
+                                                            <div class="flex items-center gap-1.5 mt-2 px-3 py-1 rounded-full text-xs font-semibold flex-wrap" style="background: ${d.color}15; color: ${d.colorText}; border: 1.5px dashed ${d.color}30;">
+                                                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3 h-3"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2"></path><circle cx="7" cy="17" r="2"></circle><path d="M9 17h6"></path><circle cx="17" cy="17" r="2"></circle></svg>
+                                                                ${s.trans}
+                                                                <span>•</span>
+                                                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-2.5 h-2.5"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                                                                ${s.tmin}min
+                                                                <span>•</span>
+                                                                📍 ${s.km}km
+                                                            </div>
+                                                        ` : ''}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+
+                        <button onclick="go(0)" class="mt-6 w-full flex items-center justify-center gap-2 py-3 rounded-lg bg-white border border-gray-200 text-gray-600 shadow-sm font-semibold text-sm hover:bg-gray-50">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4"><path d="m12 19-7-7 7-7"></path><path d="M19 12H5"></path></svg>
+                            Volver
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderPresupuesto() {
+            const gastoDias = days.map(d => ({
+                id: d.id,
+                date: d.date,
+                emoji: d.emoji,
+                title: d.title,
+                gastos: d.dayExpenses
+            }));
+
+            let contenido = '';
+
+            if (presupuestoTab === 'categorias') {
+                contenido = `
+                    <div class="space-y-3">
+                        <div class="bg-white rounded-lg shadow-sm border border-gray-100 p-4">
+                            <div class="flex items-center justify-between mb-3">
+                                <label class="font-semibold text-gray-900 text-sm">✈️ Billetes de avión</label>
+                                <input type="number" value="180" id="avion" onchange="actualizarPresupuesto()" class="w-20 px-2 py-1 border border-gray-300 rounded text-right text-sm" placeholder="€">
+                            </div>
+                            <p class="text-xs text-gray-500">Por persona</p>
+                            <p class="text-sm font-bold text-gray-900 mt-2" id="total-avion">€360 total (2 personas)</p>
+                        </div>
+
+                        <div class="bg-white rounded-lg shadow-sm border border-gray-100 p-4">
+                            <div class="flex items-center justify-between mb-3">
+                                <label class="font-semibold text-gray-900 text-sm">🏨 Hotel (5 noches)</label>
+                                <input type="number" value="182.07" id="hotel" onchange="actualizarPresupuesto()" class="w-20 px-2 py-1 border border-gray-300 rounded text-right text-sm" placeholder="€">
+                            </div>
+                            <p class="text-xs text-gray-500">Por persona (5 noches)</p>
+                            <p class="text-sm font-bold text-gray-900 mt-2" id="total-hotel">€364 total (2 personas)</p>
+                        </div>
+
+                        <div class="bg-white rounded-lg shadow-sm border border-gray-100 p-4">
+                            <div class="flex items-center justify-between mb-3">
+                                <label class="font-semibold text-gray-900 text-sm">🚕 Taxis</label>
+                                <input type="number" value="189.38" id="taxi" onchange="actualizarPresupuesto()" class="w-20 px-2 py-1 border border-gray-300 rounded text-right text-sm" placeholder="€">
+                            </div>
+                            <p class="text-xs text-gray-500">Por persona (calculado automáticamente)</p>
+                            <p class="text-sm font-bold text-gray-900 mt-2" id="total-taxi">€379 total (2 personas)</p>
+                        </div>
+
+                        <div class="bg-white rounded-lg shadow-sm border border-gray-100 p-4">
+                            <div class="flex items-center justify-between mb-3">
+                                <label class="font-semibold text-gray-900 text-sm">🎫 Tour arqueológico</label>
+                                <input type="number" value="50" id="tour" onchange="actualizarPresupuesto()" class="w-20 px-2 py-1 border border-gray-300 rounded text-right text-sm" placeholder="€">
+                            </div>
+                            <p class="text-xs text-gray-500">Por persona (a confirmar)</p>
+                            <p class="text-sm font-bold text-gray-900 mt-2" id="total-tour">€100 total (2 personas)</p>
+                        </div>
+
+                        <div class="bg-white rounded-lg shadow-sm border border-gray-100 p-4">
+                            <div class="flex items-center justify-between mb-3">
+                                <label class="font-semibold text-gray-900 text-sm">🍽️ Comidas y bebidas</label>
+                                <input type="number" value="105" id="comidas" onchange="actualizarPresupuesto()" class="w-20 px-2 py-1 border border-gray-300 rounded text-right text-sm" placeholder="€">
+                            </div>
+                            <p class="text-xs text-gray-500">Por persona (35€/día × 6 días ÷ 2)</p>
+                            <p class="text-sm font-bold text-gray-900 mt-2" id="total-comidas">€210 total (2 personas)</p>
+                        </div>
+
+                        <div class="bg-white rounded-lg shadow-sm border border-gray-100 p-4">
+                            <div class="flex items-center justify-between mb-3">
+                                <label class="font-semibold text-gray-900 text-sm">🎟️ Entradas y otros</label>
+                                <input type="number" value="30" id="otros" onchange="actualizarPresupuesto()" class="w-20 px-2 py-1 border border-gray-300 rounded text-right text-sm" placeholder="€">
+                            </div>
+                            <p class="text-xs text-gray-500">Por persona (museos, entradas, compras)</p>
+                            <p class="text-sm font-bold text-gray-900 mt-2" id="total-otros">€60 total (2 personas)</p>
+                        </div>
+                    </div>
+                `;
+            } else {
+                contenido = `
+                    <div class="space-y-2">
+                        ${gastoDias.map(d => `
+                            <div class="bg-white rounded-lg shadow-sm border border-gray-100 p-4">
+                                <div class="flex items-center justify-between mb-2">
+                                    <div class="flex items-center gap-2">
+                                        <span class="text-lg">${d.emoji}</span>
+                                        <div>
+                                            <p class="font-semibold text-gray-900 text-sm">${d.date.replace(' de ', ' de ').toUpperCase()} - ${d.dayOfWeek}</p>
+                                            <p class="text-xs text-gray-500">${d.title}</p>
+                                        </div>
+                                    </div>
+                                    <p class="text-lg font-bold text-gray-900">€${(((taxiAjustado[d.id] !== undefined ? taxiAjustado[d.id] : d.gastos.taxi) + d.gastos.meals.desayuno + d.gastos.meals.comida + d.gastos.meals.cena + d.gastos.entradas) / d.gastos.travelers / 20).toFixed(2)}</p>
+                                </div>
+                                <div class="grid gap-2 text-xs" style="grid-template-columns: repeat(${[d.gastos.taxi > 0, true, true, true, d.gastos.entradas > 0].filter(x => x).length}, 1fr);">
+                                    ${d.gastos.taxi > 0 ? `<div class="text-center"><p class="text-gray-600">🚕</p><p class="font-bold text-gray-900">€${((taxiAjustado[d.id] !== undefined ? taxiAjustado[d.id] : d.gastos.taxi) / d.gastos.travelers / 20).toFixed(2)}</p><p class="text-gray-500">÷${d.gastos.travelers}</p></div>` : ''}
+                                    <div class="text-center"><p class="text-gray-600">🍳</p><p class="font-bold text-gray-900">€${(d.gastos.meals.desayuno / d.gastos.travelers / 20).toFixed(2)}</p><p class="text-gray-500">÷${d.gastos.travelers}</p></div>
+                                    <div class="text-center"><p class="text-gray-600">🥘</p><p class="font-bold text-gray-900">€${(d.gastos.meals.comida / d.gastos.travelers / 20).toFixed(2)}</p><p class="text-gray-500">÷${d.gastos.travelers}</p></div>
+                                    <div class="text-center"><p class="text-gray-600">🍽️</p><p class="font-bold text-gray-900">€${(d.gastos.meals.cena / d.gastos.travelers / 20).toFixed(2)}</p><p class="text-gray-500">÷${d.gastos.travelers}</p></div>
+                                    ${d.gastos.entradas > 0 ? `<div class="text-center"><p class="text-gray-600">🎟️</p><p class="font-bold text-gray-900">€${(d.gastos.entradas / d.gastos.travelers / 20).toFixed(2)}</p><p class="text-gray-500">÷${d.gastos.travelers}</p></div>` : ''}
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+            }
+
+            return `
+                <div class="min-h-screen bg-[#FAF7F2]">
+                    <div class="gradient-1 text-white sticky top-0 z-50">
+                        <div class="max-w-2xl mx-auto px-4 py-4">
+                            <div class="flex items-center gap-3 mb-3">
+                                <button onclick="go(0)" class="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center hover:bg-white/30">
+                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4 text-white"><path d="m12 19-7-7 7-7"></path><path d="M19 12H5"></path></svg>
+                                </button>
+                                <div>
+                                    <p class="text-xs text-white/70 font-semibold uppercase tracking-wide">Presupuesto</p>
+                                    <h1 class="text-lg font-bold">💰 Costo del viaje</h1>
+                                </div>
+                            </div>
+                            <div class="flex gap-1">
+                                <button onclick="presupuestoTab='categorias'; render();" class="flex-1 py-2 text-xs font-bold rounded-lg ${presupuestoTab === 'categorias' ? 'bg-white/25 border border-white/50' : 'bg-white/10'}">Por categoría</button>
+                                <button onclick="presupuestoTab='dias'; render();" class="flex-1 py-2 text-xs font-bold rounded-lg ${presupuestoTab === 'dias' ? 'bg-white/25 border border-white/50' : 'bg-white/10'}">Por día</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="max-w-2xl mx-auto px-4 py-6">
+                        <div class="bg-white rounded-lg shadow-sm border border-gray-100 p-4 mb-4">
+                            <div class="text-center mb-4">
+                                <p class="text-gray-600 text-sm mb-1">Costo total estimado</p>
+                                <p class="text-4xl font-bold text-gray-900" id="totalViaje">€1.472</p>
+                                <p class="text-gray-500 text-sm mt-2">€736 por persona (2 personas)</p>
+                            </div>
+                        </div>
+
+                        ${contenido}
+                    </div>
+
+                    <div class="max-w-2xl mx-auto px-4 pb-6">
+                        <button onclick="go(0)" class="mt-6 w-full flex items-center justify-center gap-2 py-3 rounded-lg bg-white border border-gray-200 text-gray-600 shadow-sm font-semibold text-sm hover:bg-gray-50">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4"><path d="m12 19-7-7 7-7"></path><path d="M19 12H5"></path></svg>
+                            Volver al itinerario
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+
+        function actualizarPresupuesto() {
+            const avion = parseFloat(document.getElementById('avion').value) || 0;
+            const hotel = parseFloat(document.getElementById('hotel').value) || 0;
+            const taxi = parseFloat(document.getElementById('taxi').value) || 0;
+            const tour = parseFloat(document.getElementById('tour').value) || 0;
+            const comidas = parseFloat(document.getElementById('comidas').value) || 0;
+            const otros = parseFloat(document.getElementById('otros').value) || 0;
+
+            const porPersona = avion + hotel + taxi + tour + comidas + otros;
+            const totalViaje = porPersona * 2;
+
+            document.getElementById('totalViaje').textContent = '€' + totalViaje.toFixed(2);
+            document.getElementById('total-avion').textContent = '€' + (avion * 2).toFixed(2) + ' total (2 personas)';
+            document.getElementById('total-hotel').textContent = '€' + (hotel * 2).toFixed(2) + ' total (2 personas)';
+            document.getElementById('total-taxi').textContent = '€' + (taxi * 2).toFixed(2) + ' total (2 personas)';
+            document.getElementById('total-tour').textContent = '€' + (tour * 2).toFixed(2) + ' total (2 personas)';
+            document.getElementById('total-comidas').textContent = '€' + (comidas * 2).toFixed(2) + ' total (2 personas)';
+            document.getElementById('total-otros').textContent = '€' + (otros * 2).toFixed(2) + ' total (2 personas)';
+        }
+
+        function render() { 
+            let html = '';
+            if (page === 0) html = renderHome();
+            else if (page >= 1 && page <= 6) html = renderDay();
+            else if (page === 'presupuesto') html = renderPresupuesto();
+            document.getElementById('app').innerHTML = html;
+            if (page === 'presupuesto') actualizarPresupuesto();
+        }
+        render();
+    </script>
+</body>
+</html>
